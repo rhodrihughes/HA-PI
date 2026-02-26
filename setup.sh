@@ -14,7 +14,7 @@
 set -euo pipefail
 
 REPO="https://github.com/rhodrihughes/ha-pi.git"
-INSTALL_DIR="/home/pi/ha-lights"
+INSTALL_DIR="${HOME}/ha-lights"
 CONFIG_PATH="/etc/ha_lights.conf"
 LVGL_BRANCH="release/v9.2"
 MONGOOSE_VERSION="7.16"
