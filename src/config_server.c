@@ -491,7 +491,7 @@ static int json_extract_str(const char *json, int json_len,
         len = buf_size - 1;
     memcpy(buf, val, (size_t)len);
     buf[len] = '\0';
-    mg_free(val);
+    free(val);
     return len;
 }
 

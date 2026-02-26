@@ -47,7 +47,7 @@ Then pull in the two vendored C libraries that get compiled into the binary:
 LVGL (the graphics library that renders the UI):
 
 ```bash
-git clone --branch release/v9.2 --depth 1 https://github.com/lvgl/lvgl.git lvgl
+sudo git clone --branch release/v9.2 --depth 1 https://github.com/lvgl/lvgl.git lvgl
 ```
 
 Mongoose (a single-file embedded HTTP server for the web config UI):

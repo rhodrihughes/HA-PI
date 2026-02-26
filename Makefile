@@ -5,8 +5,9 @@ CC       ?= gcc
 CFLAGS   := -Wall -Wextra -O2 -Iinclude -Ilvgl -I.
 LDFLAGS  := -lcurl -lcrypt -lpthread -lm
 
-# LVGL sources (add as they are created)
-LVGL_SRC := $(wildcard lvgl/src/**/*.c) $(wildcard lvgl/src/*.c)
+# LVGL sources — recursive wildcard to catch all subdirectories
+rwildcard = $(foreach d,$(wildcard $(1:=/*)),$(call rwildcard,$d,$2) $(filter $(subst *,%,$2),$d))
+LVGL_SRC := $(call rwildcard,lvgl/src,*.c)
 
 # App sources
 APP_SRC  := $(wildcard src/*.c)
