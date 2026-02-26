@@ -16,6 +16,7 @@
 #include "config_server.h"
 #include "mongoose.h"
 
+#include <curl/curl.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -338,6 +339,11 @@ static void serve_settings_page(struct mg_connection *c)
         ".btn-secondary{background:#16213e;color:#aaa;border:1px solid #333}"
         ".btn-danger{background:transparent;color:#e94560;border:none;font-size:1.2em;"
         "cursor:pointer;padding:4px 8px}"
+        ".btn-test{background:#0f3460;color:#aaa;border:1px solid #333;margin-top:12px}"
+        ".btn-test:hover{background:#16213e}"
+        "#test-result{margin-top:8px;font-size:0.85em;min-height:1.2em}"
+        ".test-ok{color:#4caf50}"
+        ".test-fail{color:#e94560}"
         ".actions{margin-top:20px;display:flex;gap:10px}"
         "#status{margin-top:12px;font-size:0.9em;color:#aaa}"
         "</style></head><body>"
@@ -346,9 +352,11 @@ static void serve_settings_page(struct mg_connection *c)
         "<a class='logout' href='#' onclick=\"fetch('/logout',{method:'POST'})"
         ".then(()=>location.href='/')\">Logout</a></div>"
         "<label>Home Assistant URL</label>"
-        "<input type='url' id='ha_url' placeholder='http://192.168.1.100:8123'>"
+        "<input type='url' id='ha_url' placeholder='e.g. http://192.168.1.100:8123'>"
         "<label>Home Assistant Token</label>"
-        "<input type='text' id='ha_token' placeholder='Long-lived access token'>"
+        "<input type='text' id='ha_token' placeholder='e.g. eyJhbGciOiJIUzI1NiIs...'>"
+        "<button class='btn btn-test' onclick='testConnection()'>Test Connection</button>"
+        "<div id='test-result'></div>"
         "<label>Lights</label>"
         "<div id='lights'></div>"
         "<button class='btn btn-secondary' onclick='addLight()'>+ Add Light</button>"
@@ -363,9 +371,9 @@ static void serve_settings_page(struct mg_connection *c)
         "  let h='';"
         "  (cfg.lights||[]).forEach((l,i)=>{"
         "    h+='<div class=\"light-row\">'"
-        "      +'<input placeholder=\"Label\" value=\"'+esc(l.label)+'\" data-i=\"'+i+'\" data-f=\"label\">'"
-        "      +'<input placeholder=\"entity_id\" value=\"'+esc(l.entity_id)+'\" data-i=\"'+i+'\" data-f=\"entity_id\">'"
-        "      +'<input class=\"icon-field\" placeholder=\"Icon\" value=\"'+esc(l.icon)+'\" data-i=\"'+i+'\" data-f=\"icon\">'"
+        "      +'<input placeholder=\"e.g. Living Room\" value=\"'+esc(l.label)+'\" data-i=\"'+i+'\" data-f=\"label\">'"
+        "      +'<input placeholder=\"e.g. light.living_room or switch.lamp\" value=\"'+esc(l.entity_id)+'\" data-i=\"'+i+'\" data-f=\"entity_id\">'"
+        "      +'<input class=\"icon-field\" placeholder=\"bulb\" value=\"'+esc(l.icon)+'\" data-i=\"'+i+'\" data-f=\"icon\">'"
         "      +'<button class=\"btn-danger\" onclick=\"removeLight('+i+')\">&#10005;</button>'"
         "      +'</div>';"
         "  });"
@@ -386,6 +394,18 @@ static void serve_settings_page(struct mg_connection *c)
         "    if(l.entity_id)cfg.lights.push(l);"
         "  });"
         "  return cfg;"
+        "}"
+        "function testConnection(){"
+        "  var el=document.getElementById('test-result');"
+        "  el.className='';el.textContent='Testing...';"
+        "  var u=document.getElementById('ha_url').value;"
+        "  var t=document.getElementById('ha_token').value;"
+        "  fetch('/api/test-connection',{method:'POST',"
+        "    headers:{'Content-Type':'application/json'},"
+        "    body:JSON.stringify({ha_url:u,ha_token:t})})"
+        "  .then(r=>r.json())"
+        "  .then(d=>{el.className=d.ok?'test-ok':'test-fail';el.textContent=d.message})"
+        "  .catch(e=>{el.className='test-fail';el.textContent='Request failed: '+e.message})"
         "}"
         "function saveConfig(){"
         "  let c=gatherConfig();"
@@ -558,6 +578,102 @@ static int handle_config_update(struct mg_http_message *hm)
 }
 
 /* ------------------------------------------------------------------ */
+/*  HA connection test                                                */
+/* ------------------------------------------------------------------ */
+
+/** Curl write callback — discard body, we only care about HTTP status. */
+static size_t test_write_cb(void *ptr, size_t size, size_t nmemb, void *ud)
+{
+    (void)ptr; (void)ud;
+    return size * nmemb;
+}
+
+/**
+ * Test connectivity to a Home Assistant instance.
+ * Hits GET <url>/api/ with the given bearer token.
+ * Returns HTTP status code, or -1 on connection failure.
+ */
+static long test_ha_connection(const char *url, const char *token)
+{
+    CURL *curl;
+    CURLcode res;
+    long http_code = 0;
+    char full_url[512];
+    char auth_hdr[600];
+    struct curl_slist *hdrs = NULL;
+
+    /* Build URL — strip trailing slash then append /api/ */
+    snprintf(full_url, sizeof(full_url), "%s", url);
+    size_t len = strlen(full_url);
+    if (len > 0 && full_url[len - 1] == '/')
+        full_url[len - 1] = '\0';
+    strncat(full_url, "/api/", sizeof(full_url) - strlen(full_url) - 1);
+
+    curl = curl_easy_init();
+    if (!curl)
+        return -1;
+
+    snprintf(auth_hdr, sizeof(auth_hdr), "Authorization: Bearer %s", token);
+    hdrs = curl_slist_append(NULL, auth_hdr);
+
+    curl_easy_setopt(curl, CURLOPT_URL, full_url);
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, hdrs);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, test_write_cb);
+    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 5L);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
+
+    res = curl_easy_perform(curl);
+    if (res == CURLE_OK)
+        curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
+    else
+        http_code = -1;
+
+    curl_slist_free_all(hdrs);
+    curl_easy_cleanup(curl);
+    return http_code;
+}
+
+/**
+ * Handle POST /api/test-connection.
+ * Expects JSON body: {"ha_url":"...","ha_token":"..."}
+ * Returns JSON: {"ok":true/false,"message":"..."}
+ */
+static void handle_test_connection(struct mg_connection *c,
+                                   struct mg_http_message *hm)
+{
+    char url[256] = {0};
+    char token[512] = {0};
+    long code;
+
+    json_extract_str(hm->body.buf, (int)hm->body.len, "$.ha_url", url, sizeof(url));
+    json_extract_str(hm->body.buf, (int)hm->body.len, "$.ha_token", token, sizeof(token));
+
+    if (url[0] == '\0') {
+        mg_http_reply(c, 200, "Content-Type: application/json\r\n",
+            "{\"ok\":false,\"message\":\"URL is empty\"}");
+        return;
+    }
+
+    code = test_ha_connection(url, token);
+
+    if (code == 200) {
+        mg_http_reply(c, 200, "Content-Type: application/json\r\n",
+            "{\"ok\":true,\"message\":\"Connected successfully\"}");
+    } else if (code == 401) {
+        mg_http_reply(c, 200, "Content-Type: application/json\r\n",
+            "{\"ok\":false,\"message\":\"URL reachable but token is invalid (401 Unauthorized)\"}");
+    } else if (code == -1) {
+        mg_http_reply(c, 200, "Content-Type: application/json\r\n",
+            "{\"ok\":false,\"message\":\"Cannot reach Home Assistant at this URL\"}");
+    } else {
+        char body[256];
+        snprintf(body, sizeof(body),
+            "{\"ok\":false,\"message\":\"Unexpected response (HTTP %ld)\"}", code);
+        mg_http_reply(c, 200, "Content-Type: application/json\r\n", "%s", body);
+    }
+}
+
+/* ------------------------------------------------------------------ */
 /*  Main mongoose event handler                                       */
 /* ------------------------------------------------------------------ */
 
@@ -640,6 +756,13 @@ static void ev_handler(struct mg_connection *c, int ev, void *ev_data)
     if (mg_match(hm->uri, mg_str("/api/config"), NULL) &&
         mg_strcmp(hm->method, mg_str("GET")) == 0) {
         serve_config_json(c);
+        return;
+    }
+
+    /* ---- POST /api/test-connection — Test HA connectivity ---- */
+    if (mg_match(hm->uri, mg_str("/api/test-connection"), NULL) &&
+        mg_strcmp(hm->method, mg_str("POST")) == 0) {
+        handle_test_connection(c, hm);
         return;
     }
 

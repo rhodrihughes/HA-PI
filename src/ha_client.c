@@ -316,9 +316,22 @@ int ha_toggle_light(const char *entity_id)
     else
         service = "turn_on";
 
-    /* Build URL: POST /api/services/light/<service> */
-    snprintf(url, sizeof(url), "%s/api/services/light/%s",
-             s_base_url, service);
+    /* Build URL: POST /api/services/<domain>/<service>
+     * Extract domain from entity_id (e.g. "light" from "light.living_room",
+     * "switch" from "switch.studio_lamp") */
+    char domain[64];
+    const char *dot = strchr(entity_id, '.');
+    if (dot) {
+        size_t dlen = (size_t)(dot - entity_id);
+        if (dlen >= sizeof(domain)) dlen = sizeof(domain) - 1;
+        memcpy(domain, entity_id, dlen);
+        domain[dlen] = '\0';
+    } else {
+        snprintf(domain, sizeof(domain), "light"); /* fallback */
+    }
+
+    snprintf(url, sizeof(url), "%s/api/services/%s/%s",
+             s_base_url, domain, service);
 
     /* Build JSON body */
     snprintf(body, sizeof(body), "{\"entity_id\": \"%s\"}", entity_id);

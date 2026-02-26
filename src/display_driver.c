@@ -26,6 +26,8 @@
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <linux/fb.h>
+#include <linux/kd.h>
+#include <linux/vt.h>
 
 /* ------------------------------------------------------------------ */
 /*  Configuration                                                     */
@@ -47,6 +49,46 @@ static uint32_t fb_bpp = 16;         /* Bits per pixel                */
 
 static lv_display_t *disp = NULL;    /* LVGL display handle           */
 static uint8_t *draw_buf = NULL;     /* LVGL draw buffer              */
+static int tty_fd = -1;             /* TTY fd for console blanking    */
+
+/* ------------------------------------------------------------------ */
+/*  Console blanking                                                  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Disable the kernel console so it stops writing text over the
+ * framebuffer. Sets KD_GRAPHICS mode on tty1 which tells the kernel
+ * this tty is being used for graphics and it should not render text.
+ */
+static void disable_console(void)
+{
+    tty_fd = open("/dev/tty1", O_RDWR);
+    if (tty_fd < 0) {
+        /* Try tty0 as fallback */
+        tty_fd = open("/dev/tty0", O_RDWR);
+    }
+    if (tty_fd >= 0) {
+        /* Switch to graphics mode — kernel stops rendering text */
+        if (ioctl(tty_fd, KDSETMODE, KD_GRAPHICS) < 0) {
+            fprintf(stderr, "display_driver: KDSETMODE failed: %s\n",
+                    strerror(errno));
+        }
+    } else {
+        fprintf(stderr, "display_driver: cannot open tty for console blanking\n");
+    }
+}
+
+/**
+ * Restore the kernel console to text mode.
+ */
+static void restore_console(void)
+{
+    if (tty_fd >= 0) {
+        ioctl(tty_fd, KDSETMODE, KD_TEXT);
+        close(tty_fd);
+        tty_fd = -1;
+    }
+}
 
 /* ------------------------------------------------------------------ */
 /*  Framebuffer helpers                                               */
@@ -97,11 +139,6 @@ static int fb_open(const char *dev)
 
     /* Clear to black */
     memset(fb_map, 0, fb_size);
-
-    /* Blank the framebuffer console cursor by hiding it */
-    int blank = 1;
-    ioctl(fb_fd, FBIOBLANK, blank);
-    ioctl(fb_fd, FBIOBLANK, 0);  /* unblank so display stays on */
 
     return 0;
 }
@@ -175,6 +212,9 @@ int display_driver_init(void)
         return -1;
     }
 
+    /* Stop the kernel console from writing over our framebuffer */
+    disable_console();
+
     /* --- LVGL display registration (9.x API only) ----------------- */
 
     draw_buf = (uint8_t *)malloc(DRAW_BUF_SIZE);
@@ -202,6 +242,8 @@ int display_driver_init(void)
 
 void display_driver_deinit(void)
 {
+    restore_console();
+
     if (fb_map) {
         munmap(fb_map, fb_size);
         fb_map = NULL;

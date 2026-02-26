@@ -94,7 +94,7 @@ if [ ! -f "$CONFIG_PATH" ]; then
 {
   "ha_url": "",
   "ha_token": "",
-  "web_password": "",
+  "web_password": "happy",
   "lights": []
 }
 CONF

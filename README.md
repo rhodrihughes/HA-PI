@@ -19,7 +19,7 @@ SSH into your Pi and run:
 curl -sL https://raw.githubusercontent.com/rhodrihughes/ha-pi/main/setup.sh | bash
 ```
 
-Retrying? Remove older versions first.
+Fully retrying? Remove older versions first.
 
 ```bash
 sudo systemctl stop ha-pi
@@ -27,6 +27,23 @@ rm -rf ~/ha-pi
 sudo rm /etc/ha_lights.conf
 sudo curl -sL https://raw.githubusercontent.com/rhodrihughes/ha-pi/main/setup.sh | bash
 
+```
+
+Git pull restart:
+```bash
+cd ~/ha-pi
+git pull
+make clean
+make -j$(nproc)
+sudo systemctl restart ha-pi
+```
+
+
+
+Check touchscreen is working with
+```bash
+sudo apt install evtest
+sudo evtest
 ```
 
 This installs dependencies, enables SPI, clones the repo, pulls in LVGL and Mongoose, builds the binary, creates a starter config, and installs the systemd service. After it finishes, edit `/etc/ha_lights.conf` with your HA details and start the service.
@@ -165,7 +182,7 @@ journalctl -u ha-pi -f
 
 ## Web Configuration
 
-Once running, open `http://<pi-ip>:8080` in a browser to manage lights without SSH. Log in with the password from your config file, then add/remove/reorder lights and update HA connection settings. Changes take effect immediately on the display.
+Once running, open `http://<pi-ip>:8080` in a browser to manage lights without SSH. The default password is `happy` — change it in `/etc/ha_lights.conf`. Add/remove/reorder lights and update HA connection settings. Changes take effect immediately on the display.
 
 ## Usage
 
