@@ -1,0 +1,17 @@
+[Unit]
+Description=Home Assistant Light Control Touchscreen UI
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/home/pi/ha-lights/ha_lights /etc/ha_lights.conf
+Restart=on-failure
+RestartSec=5
+User=pi
+Group=pi
+
+# Hardware access
+SupplementaryGroups=spi gpio
+
+[Install]
+WantedBy=multi-user.target
