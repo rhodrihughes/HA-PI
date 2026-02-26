@@ -9,7 +9,7 @@
  * {
  *   "ha_url": "http://192.168.1.100:8123",
  *   "ha_token": "eyJ...",
- *   "web_password_hash": "$2b$10$...",
+ *   "web_password": "yourpassword",
  *   "lights": [
  *     { "entity_id": "light.living_room", "label": "Living Room", "icon": "bulb" }
  *   ]
@@ -291,9 +291,9 @@ int config_load(const char *path, config_t *out)
         out->ha.token[0] = '\0';
     }
 
-    /* web_password_hash is optional (may not be set yet) */
-    json_get_string(json, "web_password_hash", out->web_password_hash,
-                    sizeof(out->web_password_hash));
+    /* web_password is optional (may not be set yet) */
+    json_get_string(json, "web_password", out->web_password,
+                    sizeof(out->web_password));
 
     /* Parse lights array (optional — empty config still starts the UI) */
     const char *arr = find_lights_array(json);
@@ -406,7 +406,7 @@ int config_save(const char *path, const config_t *cfg)
     fprintf(f, "{\n");
     fprintf(f, "  \"ha_url\": \"%s\",\n", cfg->ha.base_url);
     fprintf(f, "  \"ha_token\": \"%s\",\n", cfg->ha.token);
-    fprintf(f, "  \"web_password_hash\": \"%s\",\n", cfg->web_password_hash);
+    fprintf(f, "  \"web_password\": \"%s\",\n", cfg->web_password);
     fprintf(f, "  \"lights\": [\n");
 
     for (int i = 0; i < cfg->light_count; i++) {

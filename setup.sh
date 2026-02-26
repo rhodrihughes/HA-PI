@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # HA Lights Controller — Pi Setup Script
-# Run on a fresh Raspberry Pi OS Lite (32-bit Bookworm):
+# Run on Raspberry Pi OS (32-bit Bookworm) with Desktop + LCD-show driver:
 #   curl -sL https://raw.githubusercontent.com/rhodrihughes/ha-pi/main/setup.sh | bash
 #
 # What this does:
-#   1. Installs build dependencies (gcc, libcurl, libcrypt, git)
+#   1. Installs build dependencies (gcc, libcurl, git)
 #   2. Enables SPI if not already enabled
 #   3. Clones the repo + LVGL + Mongoose
 #   4. Builds the binary
@@ -25,7 +25,7 @@ echo ""
 # --- 1. System packages ---
 echo "[1/6] Installing build dependencies..."
 sudo apt-get update -qq
-sudo apt-get install -y -qq git build-essential libcurl4-openssl-dev libcrypt-dev
+sudo apt-get install -y -qq git build-essential libcurl4-openssl-dev
 
 # --- 2. Enable SPI ---
 echo "[2/6] Enabling SPI..."
@@ -40,7 +40,16 @@ else
 fi
 
 # Ensure user is in spi and gpio groups for hardware access
-sudo usermod -aG spi,gpio "$(whoami)" 2>/dev/null || true
+sudo usermod -aG spi,gpio,video "$(whoami)" 2>/dev/null || true
+
+# Disable fbcp if running (LCD-show installs it, it overwrites our framebuffer)
+if pgrep -x fbcp > /dev/null 2>&1; then
+    echo "    Stopping fbcp (framebuffer copy)..."
+    sudo killall fbcp 2>/dev/null || true
+fi
+if [ -f /etc/rc.local ]; then
+    sudo sed -i '/fbcp/d' /etc/rc.local
+fi
 
 # --- 3. Clone repo + dependencies ---
 echo "[3/6] Cloning repo and dependencies..."
@@ -85,7 +94,7 @@ if [ ! -f "$CONFIG_PATH" ]; then
 {
   "ha_url": "",
   "ha_token": "",
-  "web_password_hash": "",
+  "web_password": "",
   "lights": []
 }
 CONF
@@ -105,14 +114,11 @@ echo ""
 echo "==> Setup complete!"
 echo ""
 echo "Next steps:"
-echo "  1. Edit your config:  sudo nano ${CONFIG_PATH}"
-echo "     - Set ha_url to your Home Assistant address"
-echo "     - Set ha_token to a long-lived access token"
+echo "  1. Start the service:  sudo systemctl start ha-pi"
+echo "  2. Open http://<this-pi>:8080 in a browser to configure"
+echo "     - Set your Home Assistant URL and access token"
 echo "     - Add your lights"
-echo "  2. Generate a web password hash (optional):"
-echo "     htpasswd -bnBC 10 \"\" yourpassword | tr -d ':\\n'"
-echo "  3. Start the service:  sudo systemctl start ha-pi"
-echo "  4. View logs:          journalctl -u ha-pi -f"
+echo "  3. View logs:          journalctl -u ha-pi -f"
 
 if [ "$NEEDS_REBOOT" -eq 1 ]; then
     echo ""

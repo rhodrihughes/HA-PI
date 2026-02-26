@@ -8,7 +8,7 @@
  *   - Tokens are random 32-byte hex strings (64 hex chars)
  *   - Sessions expire after 1 hour of inactivity
  *   - Unauthenticated requests to protected routes redirect to login
- *   - Web password stored as bcrypt hash in config file
+ *   - Web password stored as plaintext in config file
  *
  * Requirements: 9.1–9.7, 10.1–10.4
  */
@@ -16,7 +16,6 @@
 #include "config_server.h"
 #include "mongoose.h"
 
-#include <crypt.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -224,23 +223,15 @@ static int is_authenticated(struct mg_http_message *hm)
 }
 
 /**
- * Verify a plaintext password against the stored bcrypt hash.
+ * Verify a plaintext password against the stored password.
  * Returns 1 on match, 0 on mismatch or error.
  */
-static int verify_password(const char *password, const char *hash)
+static int verify_password(const char *password, const char *stored)
 {
-    char *result;
-    struct crypt_data data;
-
-    if (!password || !hash || hash[0] == '\0')
+    if (!password || !stored || stored[0] == '\0')
         return 0;
 
-    memset(&data, 0, sizeof(data));
-    result = crypt_r(password, hash, &data);
-    if (!result)
-        return 0;
-
-    return strcmp(result, hash) == 0;
+    return strcmp(password, stored) == 0;
 }
 
 /**
@@ -510,9 +501,9 @@ static int handle_config_update(struct mg_http_message *hm)
 
     memset(&new_cfg, 0, sizeof(new_cfg));
 
-    /* Copy existing password hash (not editable via web UI) */
-    snprintf(new_cfg.web_password_hash, sizeof(new_cfg.web_password_hash),
-             "%s", s_cfg->web_password_hash);
+    /* Copy existing password (not editable via web UI) */
+    snprintf(new_cfg.web_password, sizeof(new_cfg.web_password),
+             "%s", s_cfg->web_password);
 
     /* Extract ha_url */
     if (json_extract_str(json, json_len, "$.ha_url", tmp, sizeof(new_cfg.ha.base_url)) > 0)
@@ -598,7 +589,7 @@ static void ev_handler(struct mg_connection *c, int ev, void *ev_data)
         char password[256];
         get_form_var(hm, "password", password, sizeof(password));
 
-        if (verify_password(password, s_cfg->web_password_hash)) {
+        if (verify_password(password, s_cfg->web_password)) {
             char token[SESSION_TOKEN_HEX + 1];
             if (session_create(token, sizeof(token)) == 0) {
                 char cookie_hdr[256];

@@ -2,7 +2,7 @@
  * config.h — Configuration management for HA Light Control
  *
  * Loads, validates, saves, and hot-reloads a JSON configuration file
- * containing Home Assistant connection settings, web password hash,
+ * containing Home Assistant connection settings, web password,
  * and the list of controllable lights.
  *
  * Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 7.6
@@ -20,7 +20,7 @@
 
 #define CONFIG_MAX_LIGHTS     16
 #define CONFIG_PATH_MAX      256
-#define CONFIG_WEB_HASH_MAX  128
+#define CONFIG_WEB_PASS_MAX  128
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                             */
@@ -29,7 +29,7 @@
 /** Full application configuration. */
 typedef struct {
     ha_config_t    ha;                              /* HA URL + token       */
-    char           web_password_hash[CONFIG_WEB_HASH_MAX]; /* bcrypt hash  */
+    char           web_password[CONFIG_WEB_PASS_MAX];      /* plaintext pw  */
     light_config_t lights[CONFIG_MAX_LIGHTS];       /* Light definitions    */
     int            light_count;                     /* Number of lights     */
 } config_t;

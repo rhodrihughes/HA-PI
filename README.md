@@ -63,7 +63,7 @@ You should see `/dev/fb0` or `/dev/fb1`. The ha-pi display driver auto-detects t
 Install on the Pi (or in your cross-compilation sysroot):
 
 ```bash
-sudo apt install libcurl4-openssl-dev libcrypt-dev
+sudo apt install libcurl4-openssl-dev
 ```
 
 Then pull in the two vendored C libraries that get compiled into the binary:
@@ -91,7 +91,7 @@ Create `/etc/ha_lights.conf`:
 {
   "ha_url": "http://192.168.1.100:8123",
   "ha_token": "your-long-lived-access-token",
-  "web_password_hash": "$2b$10$...",
+  "web_password": "yourpassword",
   "lights": [
     { "entity_id": "light.living_room", "label": "Living Room", "icon": "bulb" },
     { "entity_id": "light.kitchen",     "label": "Kitchen",     "icon": "bulb" }
@@ -99,13 +99,7 @@ Create `/etc/ha_lights.conf`:
 }
 ```
 
-To generate the web password hash:
-
-```bash
-htpasswd -bnBC 10 "" yourpassword | tr -d ':\n'
-```
-
-Lock down the file:
+Lock down the file (the password is stored in plaintext):
 
 ```bash
 sudo chmod 600 /etc/ha_lights.conf
@@ -171,7 +165,7 @@ journalctl -u ha-pi -f
 
 ## Web Configuration
 
-Once running, open `http://<pi-ip>:8080` in a browser to manage lights without SSH. Log in with the password matching your bcrypt hash, then add/remove/reorder lights and update HA connection settings. Changes take effect immediately on the display.
+Once running, open `http://<pi-ip>:8080` in a browser to manage lights without SSH. Log in with the password from your config file, then add/remove/reorder lights and update HA connection settings. Changes take effect immediately on the display.
 
 ## Usage
 

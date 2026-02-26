@@ -4,7 +4,8 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStartPre=/bin/sh -c 'for vt in /sys/class/vtconsole/vtcon*/bind; do echo 0 > "$vt"; done'
+ExecStartPre=/bin/sh -c 'killall fbcp 2>/dev/null || true'
+ExecStartPre=/bin/sh -c 'for vt in /sys/class/vtconsole/vtcon*/bind; do echo 0 > "$vt" 2>/dev/null; done || true'
 ExecStart=REPLACE_HOME/ha-pi/ha_lights /etc/ha_lights.conf
 Restart=on-failure
 RestartSec=5
