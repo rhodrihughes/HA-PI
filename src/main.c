@@ -144,7 +144,7 @@ int main(int argc, char *argv[])
     }
 
     /* --- Main loop (~30 fps) -------------------------------------- */
-    fprintf(stdout, "ha-lights: running (config=%s)\n", config_path);
+    fprintf(stdout, "ha-pi: running (config=%s)\n", config_path);
 
     while (!g_shutdown) {
         uint32_t t0 = get_tick_ms();
@@ -156,7 +156,7 @@ int main(int argc, char *argv[])
     }
 
     /* --- Clean shutdown ------------------------------------------- */
-    fprintf(stdout, "ha-lights: shutting down\n");
+    fprintf(stdout, "ha-pi: shutting down\n");
 
     config_server_stop();
     ha_client_cleanup();

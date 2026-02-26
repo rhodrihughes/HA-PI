@@ -4,7 +4,7 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=%h/ha-lights/ha_lights /etc/ha_lights.conf
+ExecStart=%h/ha-pi/ha_lights /etc/ha_lights.conf
 Restart=on-failure
 RestartSec=5
 User=pi

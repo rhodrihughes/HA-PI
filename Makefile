@@ -19,7 +19,7 @@ OBJ      := $(SRC:.c=.o)
 TARGET   := ha_lights
 
 PI_HOST  ?= pi@raspberrypi.local
-PI_DEST  ?= /home/pi/ha-lights
+PI_DEST  ?= /home/pi/ha-pi
 
 .PHONY: all clean deploy
 
@@ -36,5 +36,5 @@ clean:
 
 deploy: $(TARGET)
 	scp $(TARGET) $(PI_HOST):$(PI_DEST)/
-	scp ha-lights.service $(PI_HOST):/tmp/ha-lights.service
-	ssh $(PI_HOST) "sudo cp /tmp/ha-lights.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable ha-lights && sudo systemctl restart ha-lights"
+	scp ha-pi.service $(PI_HOST):/tmp/ha-pi.service
+	ssh $(PI_HOST) "sudo cp /tmp/ha-pi.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable ha-pi && sudo systemctl restart ha-pi"

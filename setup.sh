@@ -14,7 +14,7 @@
 set -euo pipefail
 
 REPO="https://github.com/rhodrihughes/ha-pi.git"
-INSTALL_DIR="${HOME}/ha-lights"
+INSTALL_DIR="${HOME}/ha-pi"
 CONFIG_PATH="/etc/ha_lights.conf"
 LVGL_BRANCH="release/v9.2"
 MONGOOSE_VERSION="7.16"
@@ -89,16 +89,16 @@ if [ ! -f "$CONFIG_PATH" ]; then
 }
 CONF
     sudo chmod 600 "$CONFIG_PATH"
-    sudo chown pi:pi "$CONFIG_PATH"
+    sudo chown "$(whoami):$(whoami)" "$CONFIG_PATH"
 else
     echo "[5/6] Config already exists at ${CONFIG_PATH}, skipping"
 fi
 
 # --- 6. Systemd service ---
 echo "[6/6] Installing systemd service..."
-sudo cp "${INSTALL_DIR}/ha-lights.service" /etc/systemd/system/
+sudo cp "${INSTALL_DIR}/ha-pi.service" /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable ha-lights
+sudo systemctl enable ha-pi
 
 echo ""
 echo "==> Setup complete!"
@@ -110,8 +110,8 @@ echo "     - Set ha_token to a long-lived access token"
 echo "     - Add your lights"
 echo "  2. Generate a web password hash (optional):"
 echo "     htpasswd -bnBC 10 \"\" yourpassword | tr -d ':\\n'"
-echo "  3. Start the service:  sudo systemctl start ha-lights"
-echo "  4. View logs:          journalctl -u ha-lights -f"
+echo "  3. Start the service:  sudo systemctl start ha-pi"
+echo "  4. View logs:          journalctl -u ha-pi -f"
 
 if [ "$NEEDS_REBOOT" -eq 1 ]; then
     echo ""

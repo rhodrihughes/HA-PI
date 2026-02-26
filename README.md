@@ -117,10 +117,10 @@ Push the binary to the Pi and restart the service in one step:
 make deploy PI_HOST=pi@192.168.1.50
 ```
 
-This copies the binary to `/home/pi/ha-lights/`, installs the systemd unit, and restarts the service. Make sure the destination directory exists:
+This copies the binary to `~/ha-pi/`, installs the systemd unit, and restarts the service. Make sure the destination directory exists:
 
 ```bash
-ssh pi@192.168.1.50 "mkdir -p /home/pi/ha-lights"
+ssh pi@192.168.1.50 "mkdir -p ~/ha-pi"
 ```
 
 ## Run
@@ -135,14 +135,14 @@ Manually:
 As a systemd service:
 
 ```bash
-sudo systemctl enable ha-lights
-sudo systemctl start ha-lights
+sudo systemctl enable ha-pi
+sudo systemctl start ha-pi
 ```
 
 Check logs:
 
 ```bash
-journalctl -u ha-lights -f
+journalctl -u ha-pi -f
 ```
 
 ## Web Configuration
@@ -175,6 +175,6 @@ Once running, open `http://<pi-ip>:8080` in a browser to manage lights without S
 │   └── touch_driver.c
 ├── lvgl/              LVGL 9.x source (git submodule or copy)
 ├── lv_conf.h          Minimal LVGL config
-├── ha-lights.service  systemd unit file
+├── ha-pi.service      systemd unit file
 └── Makefile
 ```
