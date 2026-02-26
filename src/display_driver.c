@@ -98,6 +98,11 @@ static int fb_open(const char *dev)
     /* Clear to black */
     memset(fb_map, 0, fb_size);
 
+    /* Blank the framebuffer console cursor by hiding it */
+    int blank = 1;
+    ioctl(fb_fd, FBIOBLANK, blank);
+    ioctl(fb_fd, FBIOBLANK, 0);  /* unblank so display stays on */
+
     return 0;
 }
 
