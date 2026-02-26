@@ -1,17 +1,11 @@
 /**
- * touch_driver.h — XPT2046 SPI touchscreen driver for LVGL 9.x
+ * touch_driver.h — Touchscreen driver for LVGL 9.x
  *
- * Targets Raspberry Pi 3B+ with an XPT2046 resistive touchscreen
- * connected via SPI1 (CE1).
+ * Reads touch events from the Linux input subsystem (/dev/input/eventX).
+ * Auto-detects the touchscreen device by scanning for ABS_X capability.
+ * Works with kernel-managed touch controllers (e.g. XPT2046 via fbtft/LCD-show).
+ *
  * Uses ONLY LVGL 9.x APIs (no v8 functions).
- *
- * Hardware wiring:
- *   SPI device : /dev/spidev0.1 at 1 MHz
- *   IRQ (pen)  : GPIO 24 (active low, directly read for touch detect)
- *
- * Polling runs at 50 Hz in a dedicated background pthread.
- * Touch coordinates are mapped from raw ADC values to screen pixels
- * using calibration constants.
  *
  * Requirements: 2.1, 2.2, 2.3, 2.4
  */
@@ -22,11 +16,11 @@
 #include "lvgl.h"
 
 /**
- * Initialise the XPT2046 touchscreen and register with LVGL 9.x.
+ * Initialise the touchscreen and register with LVGL 9.x.
  *
- * Opens /dev/spidev0.1 at 1 MHz, starts a 50 Hz polling thread,
- * and registers the input device via lv_indev_create() +
- * lv_indev_set_type(LV_INDEV_TYPE_POINTER).
+ * Scans /dev/input/event* for a device with ABS_X capability,
+ * starts an event reading thread, and registers the input device
+ * via lv_indev_create() + lv_indev_set_type(LV_INDEV_TYPE_POINTER).
  *
  * @return 0 on success, -1 on failure
  */
@@ -35,8 +29,7 @@ int touch_driver_init(void);
 /**
  * De-initialise the touch driver.
  *
- * Stops the polling thread, closes the SPI file descriptor,
- * and cleans up resources.
+ * Stops the event reading thread and closes the input device fd.
  */
 void touch_driver_deinit(void);
 

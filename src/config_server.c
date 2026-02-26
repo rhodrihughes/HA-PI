@@ -515,29 +515,29 @@ static int handle_config_update(struct mg_http_message *hm)
              "%s", s_cfg->web_password_hash);
 
     /* Extract ha_url */
-    if (json_extract_str(json, json_len, "$.ha_url", tmp, sizeof(tmp)) > 0)
+    if (json_extract_str(json, json_len, "$.ha_url", tmp, sizeof(new_cfg.ha.base_url)) > 0)
         snprintf(new_cfg.ha.base_url, sizeof(new_cfg.ha.base_url), "%s", tmp);
 
     /* Extract ha_token */
-    if (json_extract_str(json, json_len, "$.ha_token", tmp, sizeof(tmp)) > 0)
+    if (json_extract_str(json, json_len, "$.ha_token", tmp, sizeof(new_cfg.ha.token)) > 0)
         snprintf(new_cfg.ha.token, sizeof(new_cfg.ha.token), "%s", tmp);
 
     /* Extract lights array */
     count = 0;
     for (i = 0; i < CONFIG_MAX_LIGHTS; i++) {
         snprintf(path, sizeof(path), "$.lights[%d].entity_id", i);
-        if (json_extract_str(json, json_len, path, tmp, sizeof(tmp)) <= 0)
+        if (json_extract_str(json, json_len, path, tmp, sizeof(new_cfg.lights[0].entity_id)) <= 0)
             break;
         snprintf(new_cfg.lights[count].entity_id,
                  sizeof(new_cfg.lights[count].entity_id), "%s", tmp);
 
         snprintf(path, sizeof(path), "$.lights[%d].label", i);
-        if (json_extract_str(json, json_len, path, tmp, sizeof(tmp)) > 0)
+        if (json_extract_str(json, json_len, path, tmp, sizeof(new_cfg.lights[0].label)) > 0)
             snprintf(new_cfg.lights[count].label,
                      sizeof(new_cfg.lights[count].label), "%s", tmp);
 
         snprintf(path, sizeof(path), "$.lights[%d].icon", i);
-        if (json_extract_str(json, json_len, path, tmp, sizeof(tmp)) > 0)
+        if (json_extract_str(json, json_len, path, tmp, sizeof(new_cfg.lights[0].icon)) > 0)
             snprintf(new_cfg.lights[count].icon,
                      sizeof(new_cfg.lights[count].icon), "%s", tmp);
 

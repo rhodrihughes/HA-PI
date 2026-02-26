@@ -25,7 +25,7 @@ echo ""
 # --- 1. System packages ---
 echo "[1/6] Installing build dependencies..."
 sudo apt-get update -qq
-sudo apt-get install -y -qq git build-essential libcurl4-openssl-dev libcrypt-dev libgpiod-dev
+sudo apt-get install -y -qq git build-essential libcurl4-openssl-dev libcrypt-dev
 
 # --- 2. Enable SPI ---
 echo "[2/6] Enabling SPI..."
@@ -97,7 +97,7 @@ fi
 
 # --- 6. Systemd service ---
 echo "[6/6] Installing systemd service..."
-sed "s/REPLACE_USER/$(whoami)/g" "${INSTALL_DIR}/ha-pi.service" | sudo tee /etc/systemd/system/ha-pi.service > /dev/null
+sed "s|REPLACE_USER|$(whoami)|g; s|REPLACE_HOME|${HOME}|g" "${INSTALL_DIR}/ha-pi.service" | sudo tee /etc/systemd/system/ha-pi.service > /dev/null
 sudo systemctl daemon-reload
 sudo systemctl enable ha-pi
 

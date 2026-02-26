@@ -4,14 +4,14 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=%h/ha-pi/ha_lights /etc/ha_lights.conf
+ExecStart=REPLACE_HOME/ha-pi/ha_lights /etc/ha_lights.conf
 Restart=on-failure
 RestartSec=5
 User=REPLACE_USER
 Group=REPLACE_USER
 
 # Hardware access
-SupplementaryGroups=spi gpio
+SupplementaryGroups=spi gpio video
 
 [Install]
 WantedBy=multi-user.target

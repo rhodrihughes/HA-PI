@@ -7,8 +7,9 @@ Tap tiles to toggle lights. Swipe to page through them. Edit the config from any
 ## Hardware
 
 - Raspberry Pi 3B+
-- ILI9486 480×320 SPI display on `/dev/spidev0.0` (DC=GPIO25, RST=GPIO27, BL=GPIO18)
-- XPT2046 resistive touchscreen on `/dev/spidev0.1` (IRQ=GPIO24)
+- 3.5" 480×320 SPI display (goodtft/waveshare ILI9486 style)
+- XPT2046 resistive touchscreen (typically built into the display)
+- Display driven via Linux framebuffer (kernel fbtft driver via LCD-show)
 
 ## Quick Setup
 
@@ -32,17 +33,30 @@ This installs dependencies, enables SPI, clones the repo, pulls in LVGL and Mong
 
 ## Recommended OS
 
-Use Raspberry Pi OS Lite (32-bit, Debian Bookworm). The Lite image has no desktop environment, which is exactly what you want — this app drives the display directly via SPI and doesn't need X11 or Wayland.
+Use Raspberry Pi OS (32-bit, Debian Bookworm) with Desktop. The Desktop image is required for the LCD-show display driver which sets up the framebuffer. This app renders to the framebuffer directly via LVGL — it doesn't use the desktop environment itself.
 
 Download it from https://www.raspberrypi.com/software/operating-systems/ or flash it with Raspberry Pi Imager.
 
-After flashing, enable SPI:
+## Display Setup
+
+If you're using a goodtft/waveshare-style 3.5" SPI display, install the LCD-show driver before running the setup script:
 
 ```bash
-sudo raspi-config nonint do_spi 0
+cd ~
+sudo rm -rf LCD-show
+git clone https://github.com/goodtft/LCD-show.git
+chmod -R 755 LCD-show
+cd LCD-show
+sudo ./LCD35-show
 ```
 
-The 32-bit (armhf) build is the best fit for the Pi 3B+'s 1GB RAM. The 64-bit image works too but offers no real advantage here and uses slightly more memory.
+This reboots the Pi. After reboot, verify the framebuffer exists:
+
+```bash
+ls /dev/fb*
+```
+
+You should see `/dev/fb0` or `/dev/fb1`. The ha-pi display driver auto-detects the framebuffer.
 
 ## Dependencies
 

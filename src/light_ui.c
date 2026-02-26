@@ -140,6 +140,7 @@ static void animate_to_page(int page, bool anim)
  */
 static void gesture_event_cb(lv_event_t *e)
 {
+    (void)e;
     lv_dir_t dir = lv_indev_get_gesture_dir(lv_indev_active());
 
     if (dir == LV_DIR_LEFT) {
