@@ -403,16 +403,43 @@ int config_save(const char *path, const config_t *cfg)
         return -1;
     }
 
+    /* Helper: write a JSON-escaped string to file */
+    #define WRITE_ESCAPED(file, str) do { \
+        const char *_p = (str); \
+        fputc('"', file); \
+        while (*_p) { \
+            if (*_p == '"' || *_p == '\\') fputc('\\', file); \
+            fputc(*_p, file); \
+            _p++; \
+        } \
+        fputc('"', file); \
+    } while (0)
+
     fprintf(f, "{\n");
-    fprintf(f, "  \"ha_url\": \"%s\",\n", cfg->ha.base_url);
-    fprintf(f, "  \"ha_token\": \"%s\",\n", cfg->ha.token);
-    fprintf(f, "  \"web_password\": \"%s\",\n", cfg->web_password);
+
+    fprintf(f, "  \"ha_url\": ");
+    WRITE_ESCAPED(f, cfg->ha.base_url);
+    fprintf(f, ",\n");
+
+    fprintf(f, "  \"ha_token\": ");
+    WRITE_ESCAPED(f, cfg->ha.token);
+    fprintf(f, ",\n");
+
+    fprintf(f, "  \"web_password\": ");
+    WRITE_ESCAPED(f, cfg->web_password);
+    fprintf(f, ",\n");
+
     fprintf(f, "  \"lights\": [\n");
 
     for (int i = 0; i < cfg->light_count; i++) {
         const light_config_t *l = &cfg->lights[i];
-        fprintf(f, "    { \"entity_id\": \"%s\", \"label\": \"%s\", \"icon\": \"%s\" }",
-                l->entity_id, l->label, l->icon);
+        fprintf(f, "    { \"entity_id\": ");
+        WRITE_ESCAPED(f, l->entity_id);
+        fprintf(f, ", \"label\": ");
+        WRITE_ESCAPED(f, l->label);
+        fprintf(f, ", \"icon\": ");
+        WRITE_ESCAPED(f, l->icon);
+        fprintf(f, " }");
         if (i < cfg->light_count - 1)
             fprintf(f, ",");
         fprintf(f, "\n");
@@ -420,6 +447,8 @@ int config_save(const char *path, const config_t *cfg)
 
     fprintf(f, "  ]\n");
     fprintf(f, "}\n");
+
+    #undef WRITE_ESCAPED
 
     fclose(f);
     return 0;

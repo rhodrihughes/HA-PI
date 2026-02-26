@@ -333,6 +333,9 @@ static lv_obj_t *create_page(int page_index)
     lv_obj_set_size(page, PAGE_WIDTH, DISP_VER_RES);
     lv_obj_set_pos(page, page_index * PAGE_WIDTH, 0);
     lv_obj_remove_flag(page, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_remove_flag(page, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_flag(page, LV_OBJ_FLAG_EVENT_BUBBLE);
+    lv_obj_add_flag(page, LV_OBJ_FLAG_GESTURE_BUBBLE);
 
     /* Transparent background — screen bg shows through */
     lv_obj_set_style_bg_opa(page, LV_OPA_TRANSP, 0);
@@ -462,6 +465,9 @@ void light_ui_init(const light_config_t *lights, int count)
     lv_obj_set_size(page_container, page_count * PAGE_WIDTH, DISP_VER_RES);
     lv_obj_set_pos(page_container, 0, 0);
     lv_obj_remove_flag(page_container, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_remove_flag(page_container, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_flag(page_container, LV_OBJ_FLAG_EVENT_BUBBLE);
+    lv_obj_add_flag(page_container, LV_OBJ_FLAG_GESTURE_BUBBLE);
 
     /* Transparent, no border/padding — just a positioning container */
     lv_obj_set_style_bg_opa(page_container, LV_OPA_TRANSP, 0);
