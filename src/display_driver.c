@@ -131,12 +131,12 @@ static void disp_flush_cb(lv_display_t *display, const lv_area_t *area,
         }
     } else if (fb_map && fb_bpp == 32) {
         /* 32-bit ARGB — convert from RGB565 */
-        lv_color16_t *src = (lv_color16_t *)px_map;
+        uint16_t *src = (uint16_t *)px_map;
         for (int32_t y = y1; y <= y2; y++) {
             uint32_t *dst = (uint32_t *)(fb_map + (uint32_t)y * fb_line_length
                             + (uint32_t)x1 * 4);
             for (int32_t x = 0; x < w; x++) {
-                uint16_t c = src[(y - y1) * w + x].full;
+                uint16_t c = src[(y - y1) * w + x];
                 uint8_t r = (uint8_t)(((c >> 11) & 0x1F) << 3);
                 uint8_t g = (uint8_t)(((c >> 5)  & 0x3F) << 2);
                 uint8_t b = (uint8_t)((c & 0x1F) << 3);
