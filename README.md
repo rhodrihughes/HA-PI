@@ -18,6 +18,16 @@ SSH into your Pi and run:
 curl -sL https://raw.githubusercontent.com/rhodrihughes/ha-pi/main/setup.sh | bash
 ```
 
+Retrying? Remove older versions first.
+
+```bash
+sudo systemctl stop ha-pi
+rm -rf ~/ha-pi
+sudo rm /etc/ha_lights.conf
+sudo curl -sL https://raw.githubusercontent.com/rhodrihughes/ha-pi/main/setup.sh | bash
+
+```
+
 This installs dependencies, enables SPI, clones the repo, pulls in LVGL and Mongoose, builds the binary, creates a starter config, and installs the systemd service. After it finishes, edit `/etc/ha_lights.conf` with your HA details and start the service.
 
 ## Recommended OS

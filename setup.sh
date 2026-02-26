@@ -80,12 +80,10 @@ if [ ! -f "$CONFIG_PATH" ]; then
     echo "    You'll need to fill in your HA URL, token, and lights."
     sudo tee "$CONFIG_PATH" > /dev/null <<'CONF'
 {
-  "ha_url": "http://YOUR_HA_IP:8123",
-  "ha_token": "YOUR_LONG_LIVED_ACCESS_TOKEN",
+  "ha_url": "",
+  "ha_token": "",
   "web_password_hash": "",
-  "lights": [
-    { "entity_id": "light.living_room", "label": "Living Room", "icon": "bulb" }
-  ]
+  "lights": []
 }
 CONF
     sudo chmod 600 "$CONFIG_PATH"
@@ -96,7 +94,7 @@ fi
 
 # --- 6. Systemd service ---
 echo "[6/6] Installing systemd service..."
-sudo cp "${INSTALL_DIR}/ha-pi.service" /etc/systemd/system/
+sed "s/REPLACE_USER/$(whoami)/g" "${INSTALL_DIR}/ha-pi.service" | sudo tee /etc/systemd/system/ha-pi.service > /dev/null
 sudo systemctl daemon-reload
 sudo systemctl enable ha-pi
 

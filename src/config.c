@@ -277,31 +277,31 @@ int config_load(const char *path, config_t *out)
     if (!json)
         return -1;
 
-    /* Parse top-level string fields */
+    /* Parse top-level string fields — ha_url and ha_token are optional
+     * so the app can start without credentials and show the config UI. */
     if (json_get_string(json, "ha_url", out->ha.base_url,
                         sizeof(out->ha.base_url)) != 0) {
-        fprintf(stderr, "config: missing 'ha_url' in '%s'\n", path);
-        free(json);
-        return -1;
+        fprintf(stderr, "config: 'ha_url' not set — configure via web UI\n");
+        out->ha.base_url[0] = '\0';
     }
 
     if (json_get_string(json, "ha_token", out->ha.token,
                         sizeof(out->ha.token)) != 0) {
-        fprintf(stderr, "config: missing 'ha_token' in '%s'\n", path);
-        free(json);
-        return -1;
+        fprintf(stderr, "config: 'ha_token' not set — configure via web UI\n");
+        out->ha.token[0] = '\0';
     }
 
     /* web_password_hash is optional (may not be set yet) */
     json_get_string(json, "web_password_hash", out->web_password_hash,
                     sizeof(out->web_password_hash));
 
-    /* Parse lights array */
+    /* Parse lights array (optional — empty config still starts the UI) */
     const char *arr = find_lights_array(json);
     if (!arr) {
-        fprintf(stderr, "config: missing 'lights' array in '%s'\n", path);
+        fprintf(stderr, "config: no 'lights' array — starting with 0 lights\n");
+        out->light_count = 0;
         free(json);
-        return -1;
+        return 0;
     }
 
     const char *p = arr + 1; /* skip '[' */

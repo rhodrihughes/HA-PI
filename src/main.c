@@ -122,19 +122,24 @@ int main(int argc, char *argv[])
     light_ui_set_toggle_cb(on_light_toggle);
 
     /* --- HA client ------------------------------------------------ */
-    if (ha_client_init(g_config.ha.base_url, g_config.ha.token) != 0) {
-        fprintf(stderr, "main: ha_client_init failed\n");
-        light_ui_destroy();
-        touch_driver_deinit();
-        display_driver_deinit();
-        return EXIT_FAILURE;
+    int ha_ok = 0;
+    if (g_config.ha.base_url[0] != '\0' && g_config.ha.token[0] != '\0') {
+        if (ha_client_init(g_config.ha.base_url, g_config.ha.token) == 0) {
+            ha_ok = 1;
+            /* Initial state fetch */
+            ha_poll_all(g_config.lights, g_config.light_count);
+        } else {
+            fprintf(stderr, "main: ha_client_init failed (non-fatal)\n");
+        }
+    } else {
+        fprintf(stderr, "main: HA credentials not configured — "
+                "UI will show, use web config at :8080 to set up\n");
     }
 
-    /* Initial state fetch */
-    ha_poll_all(g_config.lights, g_config.light_count);
-
-    /* Periodic polling timer (every 5 s) */
-    lv_timer_create(poll_timer_cb, POLL_INTERVAL_MS, NULL);
+    /* Periodic polling timer (every 5 s) — only if HA client is up */
+    if (ha_ok) {
+        lv_timer_create(poll_timer_cb, POLL_INTERVAL_MS, NULL);
+    }
 
     /* --- Web config server ---------------------------------------- */
     config_server_set_path(config_path);

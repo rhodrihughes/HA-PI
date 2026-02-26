@@ -371,6 +371,54 @@ static void create_page_dots(void)
 }
 
 /* ------------------------------------------------------------------ */
+/*  Setup / placeholder screen                                        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Show a setup prompt screen when no lights are configured.
+ *
+ * Displays a centred message telling the user to finish setup via
+ * the web config UI at port 8080.
+ */
+static void show_setup_screen(void)
+{
+    light_screen = lv_obj_create(NULL);
+    lv_obj_set_style_bg_color(light_screen, COLOR_SCREEN_BG, 0);
+    lv_obj_set_style_bg_opa(light_screen, LV_OPA_COVER, 0);
+    lv_obj_remove_flag(light_screen, LV_OBJ_FLAG_SCROLLABLE);
+
+    /* Centre container using flex */
+    lv_obj_set_flex_flow(light_screen, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(light_screen, LV_FLEX_ALIGN_CENTER,
+                          LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_row(light_screen, 16, 0);
+
+    /* Icon / emoji line */
+    lv_obj_t *icon = lv_label_create(light_screen);
+    lv_label_set_text(icon, LV_SYMBOL_SETTINGS);
+    lv_obj_set_style_text_font(icon, &lv_font_montserrat_32, 0);
+    lv_obj_set_style_text_color(icon, lv_color_hex(0xFFC864), 0);
+
+    /* Title */
+    lv_obj_t *title = lv_label_create(light_screen);
+    lv_label_set_text(title, "Setup Required");
+    lv_obj_set_style_text_font(title, &lv_font_montserrat_24, 0);
+    lv_obj_set_style_text_color(title, lv_color_white(), 0);
+
+    /* Instructions */
+    lv_obj_t *msg = lv_label_create(light_screen);
+    lv_label_set_text(msg, "Open the web config to continue:\nhttp://<this-pi>:8080");
+    lv_obj_set_style_text_font(msg, &lv_font_montserrat_16, 0);
+    lv_obj_set_style_text_color(msg, lv_color_hex(0x888899), 0);
+    lv_obj_set_style_text_align(msg, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_set_width(msg, 400);
+
+    lv_scr_load(light_screen);
+
+    fprintf(stderr, "light_ui: showing setup screen (no lights configured)\n");
+}
+
+/* ------------------------------------------------------------------ */
 /*  Public API                                                        */
 /* ------------------------------------------------------------------ */
 
@@ -384,6 +432,12 @@ void light_ui_init(const light_config_t *lights, int count)
     page_count = (count + LIGHT_PER_PAGE - 1) / LIGHT_PER_PAGE;
     if (page_count == 0) page_count = 1;  /* At least one page */
     current_page = 0;
+
+    /* If no lights configured, show the setup prompt instead */
+    if (count == 0) {
+        show_setup_screen();
+        return;
+    }
 
     /* Copy configuration */
     memset(tile_config, 0, sizeof(tile_config));

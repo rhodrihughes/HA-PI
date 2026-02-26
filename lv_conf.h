@@ -15,7 +15,8 @@
 /* Memory pool for LVGL internal allocations */
 #define LV_MEM_SIZE (128 * 1024)
 
-/* Fonts — Montserrat 24 for labels, 32 for icons / headings */
+/* Fonts — Montserrat 16 for body text, 24 for labels, 32 for icons / headings */
+#define LV_FONT_MONTSERRAT_16 1
 #define LV_FONT_MONTSERRAT_24 1
 #define LV_FONT_MONTSERRAT_32 1
 

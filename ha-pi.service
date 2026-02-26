@@ -7,8 +7,8 @@ Type=simple
 ExecStart=%h/ha-pi/ha_lights /etc/ha_lights.conf
 Restart=on-failure
 RestartSec=5
-User=pi
-Group=pi
+User=REPLACE_USER
+Group=REPLACE_USER
 
 # Hardware access
 SupplementaryGroups=spi gpio
