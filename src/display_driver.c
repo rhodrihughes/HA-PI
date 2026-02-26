@@ -9,6 +9,10 @@
  *   RST  : GPIO 27 (hardware reset)
  *   BL   : GPIO 18 (backlight enable)
  *
+ * GPIO access uses libgpiod (character device interface) which is the
+ * standard on Raspberry Pi OS Bookworm. The legacy sysfs interface
+ * (/sys/class/gpio) is deprecated and may not be available.
+ *
  * The ILI9486 is driven in 16-bit RGB565 mode, 480×320 landscape.
  * LVGL flush callback sends pixel data over SPI with DC pin high (data mode).
  * Command bytes are sent with DC pin low (command mode).
@@ -26,6 +30,7 @@
 #include <errno.h>
 #include <sys/ioctl.h>
 #include <linux/spi/spidev.h>
+#include <gpiod.h>
 
 /* ------------------------------------------------------------------ */
 /*  Hardware pin definitions                                          */
@@ -36,9 +41,10 @@
 #define SPI_MODE     SPI_MODE_0
 #define SPI_BPW      8          /* bits per word */
 
-#define GPIO_DC  25   /* Data / Command select */
-#define GPIO_RST 27   /* Hardware reset         */
-#define GPIO_BL  18   /* Backlight enable       */
+#define GPIO_CHIP    "gpiochip0"
+#define GPIO_DC      25   /* Data / Command select */
+#define GPIO_RST     27   /* Hardware reset         */
+#define GPIO_BL      18   /* Backlight enable       */
 
 /* Partial-update draw buffer: 10 lines × 480 pixels × 2 bytes (RGB565) */
 #define DRAW_BUF_LINES 10
@@ -48,92 +54,24 @@
 /*  Module-level state                                                */
 /* ------------------------------------------------------------------ */
 
-static int spi_fd = -1;          /* SPI file descriptor              */
-static int gpio_dc_fd = -1;      /* GPIO value fd for DC pin         */
-static int gpio_rst_fd = -1;     /* GPIO value fd for RST pin        */
-static int gpio_bl_fd = -1;      /* GPIO value fd for BL pin         */
+static int spi_fd = -1;                    /* SPI file descriptor     */
+static struct gpiod_chip *gpio_chip = NULL; /* GPIO chip handle       */
+static struct gpiod_line *line_dc  = NULL;  /* DC pin line            */
+static struct gpiod_line *line_rst = NULL;  /* RST pin line           */
+static struct gpiod_line *line_bl  = NULL;  /* BL pin line            */
 
-static lv_display_t *disp = NULL; /* LVGL display handle              */
-static uint8_t *draw_buf = NULL;  /* LVGL draw buffer                 */
+static lv_display_t *disp = NULL;           /* LVGL display handle    */
+static uint8_t *draw_buf = NULL;            /* LVGL draw buffer       */
 
 /* ------------------------------------------------------------------ */
-/*  GPIO helpers (sysfs interface)                                    */
+/*  GPIO helpers (libgpiod)                                           */
 /* ------------------------------------------------------------------ */
 
-/**
- * Export a GPIO pin via /sys/class/gpio/export and set its direction.
- * Returns an open fd to the pin's value file, or -1 on error.
- */
-static int gpio_export_and_open(int pin, const char *direction)
+/** Set a GPIO line to a value (0 or 1). */
+static void gpio_write(struct gpiod_line *line, int value)
 {
-    char path[64];
-    int fd;
-
-    /* Export the pin (ignore EBUSY — already exported) */
-    fd = open("/sys/class/gpio/export", O_WRONLY);
-    if (fd >= 0) {
-        char buf[8];
-        int len = snprintf(buf, sizeof(buf), "%d", pin);
-        if (write(fd, buf, len) < 0 && errno != EBUSY) {
-            perror("gpio export write");
-        }
-        close(fd);
-    }
-
-    /* Brief delay for sysfs to create the pin directory */
-    usleep(100000);
-
-    /* Set direction */
-    snprintf(path, sizeof(path), "/sys/class/gpio/gpio%d/direction", pin);
-    fd = open(path, O_WRONLY);
-    if (fd < 0) {
-        fprintf(stderr, "gpio_export_and_open: cannot open %s: %s\n",
-                path, strerror(errno));
-        return -1;
-    }
-    if (write(fd, direction, strlen(direction)) < 0) {
-        perror("gpio direction write");
-        close(fd);
-        return -1;
-    }
-    close(fd);
-
-    /* Open the value file for fast writes */
-    snprintf(path, sizeof(path), "/sys/class/gpio/gpio%d/value", pin);
-    fd = open(path, O_WRONLY);
-    if (fd < 0) {
-        fprintf(stderr, "gpio_export_and_open: cannot open %s: %s\n",
-                path, strerror(errno));
-        return -1;
-    }
-    return fd;
-}
-
-/** Write a 0 or 1 to an already-open GPIO value fd. */
-static void gpio_write(int fd, int value)
-{
-    const char *v = value ? "1" : "0";
-    if (write(fd, v, 1) < 0) {
-        perror("gpio_write");
-    }
-}
-
-/** Unexport a GPIO pin and close its value fd. */
-static void gpio_unexport(int pin, int *fd)
-{
-    if (*fd >= 0) {
-        close(*fd);
-        *fd = -1;
-    }
-    int exp_fd = open("/sys/class/gpio/unexport", O_WRONLY);
-    if (exp_fd >= 0) {
-        char buf[8];
-        int len = snprintf(buf, sizeof(buf), "%d", pin);
-        if (write(exp_fd, buf, len) < 0) {
-            /* Ignore errors — pin may not be exported */
-        }
-        close(exp_fd);
-    }
+    if (line)
+        gpiod_line_set_value(line, value);
 }
 
 /* ------------------------------------------------------------------ */
@@ -194,14 +132,14 @@ static void spi_transfer(const uint8_t *data, size_t len)
 /** Send a single command byte (DC low). */
 static void ili_send_cmd(uint8_t cmd)
 {
-    gpio_write(gpio_dc_fd, 0);  /* command mode */
+    gpio_write(line_dc, 0);  /* command mode */
     spi_transfer(&cmd, 1);
 }
 
 /** Send data bytes (DC high). */
 static void ili_send_data(const uint8_t *data, size_t len)
 {
-    gpio_write(gpio_dc_fd, 1);  /* data mode */
+    gpio_write(line_dc, 1);  /* data mode */
     spi_transfer(data, len);
 }
 
@@ -218,11 +156,11 @@ static void ili_send_data_byte(uint8_t val)
 /** Hardware reset: pull RST low for 10ms, then high, wait 120ms. */
 static void ili_hw_reset(void)
 {
-    gpio_write(gpio_rst_fd, 1);
+    gpio_write(line_rst, 1);
     usleep(10000);
-    gpio_write(gpio_rst_fd, 0);
+    gpio_write(line_rst, 0);
     usleep(10000);
-    gpio_write(gpio_rst_fd, 1);
+    gpio_write(line_rst, 1);
     usleep(120000);
 }
 
@@ -379,13 +317,30 @@ int display_driver_init(void)
         return -1;
     }
 
-    /* --- GPIO setup ----------------------------------------------- */
-    gpio_dc_fd  = gpio_export_and_open(GPIO_DC,  "out");
-    gpio_rst_fd = gpio_export_and_open(GPIO_RST, "out");
-    gpio_bl_fd  = gpio_export_and_open(GPIO_BL,  "out");
+    /* --- GPIO setup (libgpiod) ------------------------------------ */
+    gpio_chip = gpiod_chip_open_by_name(GPIO_CHIP);
+    if (!gpio_chip) {
+        fprintf(stderr, "display_driver_init: cannot open %s: %s\n",
+                GPIO_CHIP, strerror(errno));
+        display_driver_deinit();
+        return -1;
+    }
 
-    if (gpio_dc_fd < 0 || gpio_rst_fd < 0 || gpio_bl_fd < 0) {
-        fprintf(stderr, "display_driver_init: GPIO init failed\n");
+    line_dc  = gpiod_chip_get_line(gpio_chip, GPIO_DC);
+    line_rst = gpiod_chip_get_line(gpio_chip, GPIO_RST);
+    line_bl  = gpiod_chip_get_line(gpio_chip, GPIO_BL);
+
+    if (!line_dc || !line_rst || !line_bl) {
+        fprintf(stderr, "display_driver_init: cannot get GPIO lines\n");
+        display_driver_deinit();
+        return -1;
+    }
+
+    if (gpiod_line_request_output(line_dc,  "ha-pi-dc",  0) < 0 ||
+        gpiod_line_request_output(line_rst, "ha-pi-rst", 1) < 0 ||
+        gpiod_line_request_output(line_bl,  "ha-pi-bl",  0) < 0) {
+        fprintf(stderr, "display_driver_init: cannot request GPIO outputs: %s\n",
+                strerror(errno));
         display_driver_deinit();
         return -1;
     }
@@ -395,7 +350,7 @@ int display_driver_init(void)
     ili_init_sequence();
 
     /* Turn on backlight */
-    gpio_write(gpio_bl_fd, 1);
+    gpio_write(line_bl, 1);
 
     /* --- LVGL display registration (9.x API only) ----------------- */
 
@@ -429,9 +384,8 @@ int display_driver_init(void)
 void display_driver_deinit(void)
 {
     /* Turn off backlight */
-    if (gpio_bl_fd >= 0) {
-        gpio_write(gpio_bl_fd, 0);
-    }
+    if (line_bl)
+        gpio_write(line_bl, 0);
 
     /* Close SPI */
     if (spi_fd >= 0) {
@@ -439,10 +393,11 @@ void display_driver_deinit(void)
         spi_fd = -1;
     }
 
-    /* Unexport GPIOs */
-    gpio_unexport(GPIO_DC,  &gpio_dc_fd);
-    gpio_unexport(GPIO_RST, &gpio_rst_fd);
-    gpio_unexport(GPIO_BL,  &gpio_bl_fd);
+    /* Release GPIO lines and chip */
+    if (line_dc)  { gpiod_line_release(line_dc);  line_dc  = NULL; }
+    if (line_rst) { gpiod_line_release(line_rst); line_rst = NULL; }
+    if (line_bl)  { gpiod_line_release(line_bl);  line_bl  = NULL; }
+    if (gpio_chip) { gpiod_chip_close(gpio_chip); gpio_chip = NULL; }
 
     /* Free draw buffer */
     if (draw_buf) {

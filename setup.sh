@@ -25,7 +25,7 @@ echo ""
 # --- 1. System packages ---
 echo "[1/6] Installing build dependencies..."
 sudo apt-get update -qq
-sudo apt-get install -y -qq git build-essential libcurl4-openssl-dev libcrypt-dev
+sudo apt-get install -y -qq git build-essential libcurl4-openssl-dev libcrypt-dev libgpiod-dev
 
 # --- 2. Enable SPI ---
 echo "[2/6] Enabling SPI..."
@@ -38,6 +38,9 @@ else
     echo "    SPI already enabled"
     NEEDS_REBOOT=0
 fi
+
+# Ensure user is in spi and gpio groups for hardware access
+sudo usermod -aG spi,gpio "$(whoami)" 2>/dev/null || true
 
 # --- 3. Clone repo + dependencies ---
 echo "[3/6] Cloning repo and dependencies..."
