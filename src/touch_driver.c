@@ -175,8 +175,14 @@ static void *touch_poll_thread_fn(void *arg)
         } else if (ev.type == EV_KEY && ev.code == BTN_TOUCH) {
             pressed = (ev.value != 0);
         } else if (ev.type == EV_SYN && ev.code == SYN_REPORT) {
-            int16_t sx = map_axis(raw_x, abs_x_min, abs_x_max, DISP_HOR_RES);
-            int16_t sy = map_axis(raw_y, abs_y_min, abs_y_max, DISP_VER_RES);
+            /* XPT2046 touch digitizer axes are rotated relative to the
+             * ILI9486 LCD in landscape (480×320) mode:
+             *   - Touch ABS_X maps to screen Y (inverted)
+             *   - Touch ABS_Y maps to screen X
+             * Swap and invert to get correct screen coordinates. */
+            int16_t sx = map_axis(raw_y, abs_y_min, abs_y_max, DISP_HOR_RES);
+            int16_t sy = (DISP_VER_RES - 1) -
+                         map_axis(raw_x, abs_x_min, abs_x_max, DISP_VER_RES);
 
             pthread_mutex_lock(&touch_mutex);
             touch_state.pressed = pressed;

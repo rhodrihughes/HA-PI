@@ -97,6 +97,10 @@ int main(int argc, char *argv[])
     /* --- LVGL init ------------------------------------------------ */
     lv_init();
 
+    /* Register tick provider — LVGL 9.x needs this to track time
+     * for input handling, animations, and timer scheduling. */
+    lv_tick_set_cb(get_tick_ms);
+
     /* --- Hardware drivers ----------------------------------------- */
     if (display_driver_init() != 0) {
         fprintf(stderr, "main: display_driver_init failed\n");

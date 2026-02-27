@@ -31,6 +31,7 @@ sudo curl -sL https://raw.githubusercontent.com/rhodrihughes/ha-pi/main/setup.sh
 
 Git pull restart:
 ```bash
+sudo systemctl stop ha-pi
 cd ~/ha-pi
 git pull
 make clean

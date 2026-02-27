@@ -15,7 +15,7 @@ User=REPLACE_USER
 Group=REPLACE_USER
 
 # Hardware access
-SupplementaryGroups=spi gpio video
+SupplementaryGroups=spi gpio video input
 
 [Install]
 WantedBy=multi-user.target

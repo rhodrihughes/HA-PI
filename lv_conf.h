@@ -20,13 +20,7 @@
 #define LV_FONT_MONTSERRAT_24 1
 #define LV_FONT_MONTSERRAT_32 1
 
-/* Tick source — use clock_gettime directly so LVGL can call it from
- * any compilation unit without depending on a user-defined function. */
-#define LV_TICK_CUSTOM 1
-#define LV_TICK_CUSTOM_SYS_TIME_EXPR ({                          \
-    struct timespec _ts;                                          \
-    clock_gettime(1 /*CLOCK_MONOTONIC*/, &_ts);                   \
-    (unsigned long)(_ts.tv_sec * 1000 + _ts.tv_nsec / 1000000);  \
-})
+/* Tick source — LVGL 9.x uses lv_tick_set_cb() instead of LV_TICK_CUSTOM.
+ * We call lv_tick_set_cb() in main.c after lv_init(). */
 
 #endif /* LV_CONF_H */
