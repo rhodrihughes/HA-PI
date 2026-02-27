@@ -22,6 +22,7 @@
 
 /* Tick source — use clock_gettime directly so LVGL can call it from
  * any compilation unit without depending on a user-defined function. */
+#include <stdint.h>
 #include <time.h>
 static inline uint32_t lv_tick_get_ms(void) {
     struct timespec ts;
