@@ -150,14 +150,17 @@ static void *touch_poll_thread_fn(void *arg)
     (void)arg;
     struct input_event ev;
     int32_t raw_x = 0, raw_y = 0;
-    bool pending_pressed = false;
-    bool has_btn_touch = false;    /* Track if BTN_TOUCH was seen this frame */
-    int32_t pressure = 0;         /* ABS_PRESSURE value for drivers that use it */
+    bool pressed = false;
+
+    /* Grab exclusive access so no other process consumes our events */
+    if (ioctl(event_fd, EVIOCGRAB, 1) < 0) {
+        fprintf(stderr, "touch_driver: EVIOCGRAB failed (non-fatal): %s\n",
+                strerror(errno));
+    }
 
     while (poll_running) {
         ssize_t n = read(event_fd, &ev, sizeof(ev));
         if (n < (ssize_t)sizeof(ev)) {
-            /* No event ready (EAGAIN) or error — brief sleep */
             usleep(5000);
             continue;
         }
@@ -168,33 +171,28 @@ static void *touch_poll_thread_fn(void *arg)
             else if (ev.code == ABS_Y)
                 raw_y = ev.value;
             else if (ev.code == ABS_PRESSURE)
-                pressure = ev.value;
+                pressed = (ev.value > 0);
         } else if (ev.type == EV_KEY && ev.code == BTN_TOUCH) {
-            pending_pressed = (ev.value != 0);
-            has_btn_touch = true;
+            pressed = (ev.value != 0);
         } else if (ev.type == EV_SYN && ev.code == SYN_REPORT) {
-            /* If the driver doesn't send BTN_TOUCH (common with XPT2046),
-             * infer press state from ABS_PRESSURE instead. */
-            bool is_pressed = has_btn_touch ? pending_pressed : (pressure > 0);
-
             int16_t sx = map_axis(raw_x, abs_x_min, abs_x_max, DISP_HOR_RES);
             int16_t sy = map_axis(raw_y, abs_y_min, abs_y_max, DISP_VER_RES);
 
             pthread_mutex_lock(&touch_mutex);
-            touch_state.pressed = is_pressed;
-            if (is_pressed) {
+            touch_state.pressed = pressed;
+            if (pressed) {
                 touch_state.x = sx;
                 touch_state.y = sy;
             }
             pthread_mutex_unlock(&touch_mutex);
 
-            /* Reset pressure for next frame (so release is detected
-             * when no ABS_PRESSURE event arrives) */
-            if (!has_btn_touch)
-                pressure = 0;
+            fprintf(stderr, "touch: %s x=%d y=%d (raw %d,%d)\n",
+                    pressed ? "DOWN" : "UP  ", sx, sy, raw_x, raw_y);
         }
     }
 
+    /* Release grab on exit */
+    ioctl(event_fd, EVIOCGRAB, 0);
     return NULL;
 }
 
