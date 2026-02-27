@@ -151,6 +151,8 @@ static void *touch_poll_thread_fn(void *arg)
     struct input_event ev;
     int32_t raw_x = 0, raw_y = 0;
     bool pending_pressed = false;
+    bool has_btn_touch = false;    /* Track if BTN_TOUCH was seen this frame */
+    int32_t pressure = 0;         /* ABS_PRESSURE value for drivers that use it */
 
     while (poll_running) {
         ssize_t n = read(event_fd, &ev, sizeof(ev));
@@ -165,20 +167,31 @@ static void *touch_poll_thread_fn(void *arg)
                 raw_x = ev.value;
             else if (ev.code == ABS_Y)
                 raw_y = ev.value;
+            else if (ev.code == ABS_PRESSURE)
+                pressure = ev.value;
         } else if (ev.type == EV_KEY && ev.code == BTN_TOUCH) {
             pending_pressed = (ev.value != 0);
+            has_btn_touch = true;
         } else if (ev.type == EV_SYN && ev.code == SYN_REPORT) {
-            /* Sync event — update shared state */
+            /* If the driver doesn't send BTN_TOUCH (common with XPT2046),
+             * infer press state from ABS_PRESSURE instead. */
+            bool is_pressed = has_btn_touch ? pending_pressed : (pressure > 0);
+
             int16_t sx = map_axis(raw_x, abs_x_min, abs_x_max, DISP_HOR_RES);
             int16_t sy = map_axis(raw_y, abs_y_min, abs_y_max, DISP_VER_RES);
 
             pthread_mutex_lock(&touch_mutex);
-            touch_state.pressed = pending_pressed;
-            if (pending_pressed) {
+            touch_state.pressed = is_pressed;
+            if (is_pressed) {
                 touch_state.x = sx;
                 touch_state.y = sy;
             }
             pthread_mutex_unlock(&touch_mutex);
+
+            /* Reset pressure for next frame (so release is detected
+             * when no ABS_PRESSURE event arrives) */
+            if (!has_btn_touch)
+                pressure = 0;
         }
     }
 
